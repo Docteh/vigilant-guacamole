@@ -1,4 +1,9 @@
 {
+  "name": "vigilant-guacamole",
+  "version": "0.0.1",
+  "description": "WIP hex processor for betaflight",
+  "bugs": "https://github.com/Docteh/vigilant-guacamole",
+  "bin": "hex.js",
   "dependencies": {
     "minimist": "^1.2.0",
     "nrf-intel-hex": "^1.3.0"

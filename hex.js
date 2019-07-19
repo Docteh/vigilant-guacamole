@@ -1,6 +1,7 @@
 var args = require('minimist')(process.argv.slice(2));
 const MemoryMap = require('nrf-intel-hex');
 const fs = require('fs');
+const path = require('path');
 console.dir(args);
 
 if (args.config == undefined || (args.firmware == undefined && args.offset==undefined)) {
@@ -12,9 +13,13 @@ if (args.config == undefined || (args.firmware == undefined && args.offset==unde
     var offset;
     var outputHex = args.output;
     if (outputHex == undefined) {
-        outputHex = path.basename(configFileName) + '.hex';
+        if (firmwareHex != undefined) {
+            outputHex = path.basename(firmwareHex,'.hex')
+              + '_' + path.basename(configFilename,'.config') + '.hex';
+        } else {
+            outputHex = path.basename(configFilename) + '.hex';
+        }
     }
-    var outputHex = args.output;
     var memMap;
     if (firmwareHex != undefined) {
         memMap = MemoryMap.fromHex(fs.readFileSync(firmwareHex,'utf8'));
