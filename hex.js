@@ -3,7 +3,36 @@ var args = require('minimist')(process.argv.slice(2));
 const MemoryMap = require('nrf-intel-hex');
 const fs = require('fs');
 const path = require('path');
-console.dir(args);
+var unifiedTape = {
+  snoopLocations: [
+    0x08002800, // most recent address, for all targets
+    0x08008000, 0x08010000, // first go
+    0x08040000, 0x24010000, // speculation for H7
+  ],
+  configLocations: [
+    0x08002808, 0x080FC000, 0x0807C000, 0x080F8000,
+  ],
+  minimumConfigSize: 4096 - 8, // 4k minus two addresses
+  maximumConfigSize: 131072, // 128*1024
+  findOffset: function (map) {
+    var sectionStart, sectionFinish, sectionSize;
+    for (let location of this.snoopLocations) {
+      console.log('looking at '+location);
+      sectionStart = memMap.getUint32(location,true);
+      sectionFinish = memMap.getUint32(location + 4,true);
+      sectionSize = sectionFinish - sectionStart;
+      console.dir([sectionStart, sectionFinish, sectionSize, this.minimumConfigSize]);
+      // Two zeros clearly means no config section. Fail faster.
+      if (sectionStart == 0 && sectionFinish == 0) {
+        return undefined;
+      }
+      if (sectionSize >= this.minimumConfigSize && sectionSize <= this.maximumConfigSize && this.configLocations.includes(sectionStart)) {
+        console.log('found good offset of', sectionStart, 'at', location, 'it is', sectionSize, 'bytes.');
+        return sectionStart;
+      }
+    }
+  }
+};
 
 if (args.config == undefined || (args.firmware == undefined && args.offset==undefined)) {
     complainArguments();
@@ -24,37 +53,25 @@ if (args.config == undefined || (args.firmware == undefined && args.offset==unde
     var memMap;
     if (firmwareHex != undefined) {
         memMap = MemoryMap.fromHex(fs.readFileSync(firmwareHex,'utf8'));
-        // File is loaded, can go looking for offset.
-        console.log(memMap.getUint32(0x08008000,true));
-        console.log(memMap.getUint32(0x08010000,true));
-        // Hard coded for all acceptable values
-        // TODO either slightly or massively improve.
-        if (memMap.getUint32(0x08008000,true) == 0x080FC000) {
-            offset = memMap.getUint32(0x08008000,true);
-        }
-        if (memMap.getUint32(0x08008000,true) == 0x0807C000) {
-            offset = memMap.getUint32(0x08008000,true);
-        }
-        if (memMap.getUint32(0x08010000,true) == 0x080F8000) {
-            offset = memMap.getUint32(0x08010000,true);
-        }
+        offset = unifiedTape.findOffset(memMap);
     } else {
         memMap = new MemoryMap();
         offset = args.offset;
     }
-    if (offset == undefined) {
-        console.error('Was unable to find offset');
+    if (offset == undefined && firmwareHex != undefined) {
+        console.error('Was unable to find offset. Is "' + path.basename(firmwareHex) + '" a unified target?');
     } else {
-        console.log('Found offset of ' + offset);
+        console.log('Using offset of ' + offset);
 
         var unifiedConfig = fs.readFileSync(configFilename);
-        console.log('length is ' + unifiedConfig.length);
+        //console.log('length is ' + unifiedConfig.length);
         // Null termination is currently required
         var nullBuffer = Buffer.from([0]);
         var buf = Buffer.concat([unifiedConfig,nullBuffer]);
         // TODO look at length of buf, and care a little.
-        console.log(buf.length);
-        memMap.set(offset,Uint8Array.from(buf));
+        console.log('Config "' + configFilename + '" is', buf.length, 'bytes');
+        //memMap.set(offset,Uint8Array.from(buf));
+        memMap.set(offset, unifiedConfig);
 
         fs.writeFileSync(outputHex, memMap.asHexString());
         console.log('wrote to ' + outputHex);
