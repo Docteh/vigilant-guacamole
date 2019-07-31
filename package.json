@@ -1,6 +1,6 @@
 {
   "name": "vigilant-guacamole",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "WIP hex file processor for betaflight",
   "bugs": "https://github.com/Docteh/vigilant-guacamole/issues",
   "bin": "hex.js",

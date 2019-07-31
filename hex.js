@@ -17,11 +17,11 @@ var unifiedTape = {
   findOffset: function (map) {
     var sectionStart, sectionFinish, sectionSize;
     for (let location of this.snoopLocations) {
-      console.log('looking at '+location);
+      //console.log('looking at '+location);
       sectionStart = memMap.getUint32(location,true);
       sectionFinish = memMap.getUint32(location + 4,true);
       sectionSize = sectionFinish - sectionStart;
-      console.dir([sectionStart, sectionFinish, sectionSize, this.minimumConfigSize]);
+      console.dir({section: [sectionStart, sectionFinish, sectionSize]});
       // Two zeros clearly means no config section. Fail faster.
       if (sectionStart == 0 && sectionFinish == 0) {
         return undefined;
@@ -34,6 +34,7 @@ var unifiedTape = {
   }
 };
 
+// Main CLI program starts here
 if (args.config == undefined || (args.firmware == undefined && args.offset==undefined)) {
     complainArguments();
     process.exitCode = 1;
@@ -65,12 +66,14 @@ if (args.config == undefined || (args.firmware == undefined && args.offset==unde
 
         var unifiedConfig = fs.readFileSync(configFilename);
         //console.log('length is ' + unifiedConfig.length);
-        // Null termination is currently required
-        var nullBuffer = Buffer.from([0]);
-        var buf = Buffer.concat([unifiedConfig,nullBuffer]);
+        if (args.padnull) {
+            console.log('Adding null to end of config file');
+            // Null termination is currently required
+            var nullBuffer = Buffer.from([0]);
+            unifiedConfig = Buffer.concat([unifiedConfig,nullBuffer]);
+        }
         // TODO look at length of buf, and care a little.
-        console.log('Config "' + configFilename + '" is', buf.length, 'bytes');
-        //memMap.set(offset,Uint8Array.from(buf));
+        console.log('Config "' + configFilename + '" is', unifiedConfig.length, 'bytes');
         memMap.set(offset, unifiedConfig);
 
         fs.writeFileSync(outputHex, memMap.asHexString());
